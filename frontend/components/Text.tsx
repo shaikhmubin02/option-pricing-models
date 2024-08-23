@@ -18,19 +18,8 @@ export default function Component() {
   const [minSpotPrice, setMinSpotPrice] = useState(80)
   const [maxSpotPrice, setMaxSpotPrice] = useState(120)
 
-  // Placeholder function for Black-Scholes calculation
-  const calculateBlackScholes = () => {
-    // This is a placeholder and doesn't perform actual Black-Scholes calculations
-    return {
-      callValue: 10.45,
-      putValue: 5.57
-    }
-  }
-
   const [minVolatility, setMinVolatility] = useState(0.10)
   const [maxVolatility, setMaxVolatility] = useState(0.30)
-
-  const { callValue, putValue } = calculateBlackScholes()
 
   const [formData, setFormData] = useState({
     S: 100.00,
@@ -50,6 +39,20 @@ export default function Component() {
       ...formData,
       [name]: parseFloat(value),
     });
+  };
+
+  const incrementValue = (field: keyof typeof formData, step: number = 0.01) => {
+    setFormData((prevData) => ({
+      ...prevData,
+      [field]: parseFloat((prevData[field] + step).toFixed(2))
+    }));
+  };
+
+  const decrementValue = (field: keyof typeof formData, step: number = 0.01) => {
+    setFormData((prevData) => ({
+      ...prevData,
+      [field]: parseFloat((prevData[field] - step).toFixed(2))
+    }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -109,8 +112,8 @@ export default function Component() {
                 required
                 step="0.01"
               />
-              <Button variant="outline" size="icon" className="ml-2">-</Button>
-              <Button variant="outline" size="icon" className="ml-2">+</Button>
+              <Button variant="outline" size="icon" className="ml-2 hover:bg-red-200" onClick={() => decrementValue('S')}>-</Button>
+              <Button variant="outline" size="icon" className="ml-2 hover:bg-green-200" onClick={() => incrementValue('S')}>+</Button>
             </div>
           </div>
           <div>
@@ -124,8 +127,8 @@ export default function Component() {
                  required
                  step="0.01"
               />
-              <Button variant="outline" size="icon" className="ml-2">-</Button>
-              <Button variant="outline" size="icon" className="ml-2">+</Button>
+              <Button variant="outline" size="icon" className="ml-2 hover:bg-red-200" onClick={()=> decrementValue('K')}>-</Button>
+              <Button variant="outline" size="icon" className="ml-2 hover:bg-green-200" onClick={()=> incrementValue('K')}>+</Button>
             </div>
           </div>
           <div>
@@ -139,8 +142,8 @@ export default function Component() {
                 onChange={handleChange}
                 required
               />
-              <Button variant="outline" size="icon" className="ml-2">-</Button>
-              <Button variant="outline" size="icon" className="ml-2">+</Button>
+              <Button variant="outline" size="icon" className="ml-2 hover:bg-red-200" onClick={()=> decrementValue('T')}>-</Button>
+              <Button variant="outline" size="icon" className="ml-2 hover:bg-green-200" onClick={()=> incrementValue('T')}>+</Button>
             </div>
           </div>
           <div>
@@ -154,8 +157,8 @@ export default function Component() {
                onChange={handleChange}
                required
               />
-              <Button variant="outline" size="icon" className="ml-2">-</Button>
-              <Button variant="outline" size="icon" className="ml-2">+</Button>
+              <Button variant="outline" size="icon" className="ml-2 hover:bg-red-200" onClick={()=> decrementValue('sigma')}>-</Button>
+              <Button variant="outline" size="icon" className="ml-2 hover:bg-green-200" onClick={()=> incrementValue('sigma')}>+</Button>
             </div>
           </div>
           <div>
@@ -169,8 +172,8 @@ export default function Component() {
                 onChange={handleChange}
                 required
               />
-              <Button variant="outline" size="icon" className="ml-2">-</Button>
-              <Button variant="outline" size="icon" className="ml-2">+</Button>
+              <Button variant="outline" size="icon" className="ml-2 hover:bg-red-200" onClick={()=> decrementValue('r')}>-</Button>
+              <Button variant="outline" size="icon" className="ml-2 hover:bg-green-200" onClick={()=> incrementValue('r')}>+</Button>
             </div>
           </div>
         </div>
@@ -258,11 +261,11 @@ export default function Component() {
             <TableHeader>
               <TableRow className="bg-gray-100">
                 <TableHead className="w-[50px] border border-gray-300 font-medium p-1 text-center"></TableHead>
-                <TableHead className="border border-gray-300 font-medium p-1 text-right">Current Asset Price</TableHead>
-                <TableHead className="border border-gray-300 font-medium p-1 text-right">Strike Price</TableHead>
-                <TableHead className="border border-gray-300 font-medium p-1 text-right">Time to Maturity (Years)</TableHead>
+                <TableHead className="border border-gray-300 font-medium p-1 text-right">Current Asset Price (S)</TableHead>
+                <TableHead className="border border-gray-300 font-medium p-1 text-right">Strike Price (K)</TableHead>
+                <TableHead className="border border-gray-300 font-medium p-1 text-right">Time to Maturity (t)</TableHead>
                 <TableHead className="border border-gray-300 font-medium p-1 text-right">Volatility (σ)</TableHead>
-                <TableHead className="border border-gray-300 font-medium p-1 text-right">Risk-Free Interest Rate</TableHead>
+                <TableHead className="border border-gray-300 font-medium p-1 text-right">Risk-Free Interest Rate (r)</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -279,13 +282,13 @@ export default function Component() {
         </div>
 
         <div className="grid grid-cols-2 gap-10 mt-10 mb-8">
-          <Card className="bg-green-300 flex items-center justify-center">
+          <Card className="bg-green-400 flex items-center justify-center">
             <CardContent className="p-4">
               <h3 className="text-lg font-semibold mb-2">CALL Value</h3>
               <p className="text-2xl font-bold">${result?.call_price.toFixed(2)}</p>
             </CardContent>
           </Card>
-          <Card className="bg-red-300 flex items-center justify-center">
+          <Card className="bg-red-400 flex items-center justify-center">
             <CardContent className="p-4">
               <h3 className="text-lg font-semibold mb-2">PUT Value</h3>
               <p className="text-2xl font-bold">${result?.put_price.toFixed(2)}</p>
