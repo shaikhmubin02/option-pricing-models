@@ -6,17 +6,15 @@ import { Dock, DockIcon } from './magicui/dock'
 import Link from 'next/link'
 import Image from 'next/image'
 import ShinyButton from './magicui/shiny-button'
-import ShimmerButton from './magicui/shimmer-button'
 import { MultipleOutput } from './MultipleOutput'
-import Globe from './Globe'
 
 export default function LandingPage() {
   return (
     <div className="min-h-screen bg-background text-foreground">
       <header className="flex items-center justify-between px-4 py-2 border-b">
-        <div className="flex items-center space-x-1">
-          <ChartLineIcon className="h-5 w-5" />
-          <div className="font-bold text-xl">Option Pricing Model</div>
+        <div className="flex items-center space-x-2">
+          <Image src="/logo.png" alt='logo' width={20} height={20}></Image>
+          <div className="font-bold text-xl">Option Pricing Models</div>
         </div>
         <div className='flex items-center justify-center space-x-1'>
         <Link href="/blackscholes" prefetch={false}>
