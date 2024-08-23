@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { Slider } from './ui/slider'
 import { CallPriceHeatmap, PutPriceHeatmap } from './Heatmap'
 
-export default function Component() {
+export default function BlackScholes() {
  
   const [minSpotPrice, setMinSpotPrice] = useState(80)
   const [maxSpotPrice, setMaxSpotPrice] = useState(120)
