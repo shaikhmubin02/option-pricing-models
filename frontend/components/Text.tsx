@@ -297,7 +297,7 @@ export default function Component() {
         
         <Card className="bg-blue-50 mb-6">
           <CardContent className="p-4">
-            <p>Explore how option prices fluctuate with varying 'Spot Prices and Volatility' levels using interactive heatmap parameters, all while maintaining a constant 'Strike Price'.</p>
+            <p>Explore how option prices fluctuate with varying &apos;Spot Prices and Volatility&apos; levels using interactive heatmap parameters, all while maintaining a constant &apos;Strike Price&apos;.</p>
           </CardContent>
         </Card>
 
