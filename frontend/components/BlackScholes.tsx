@@ -5,10 +5,15 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
-import { LinkedinIcon, GithubIcon } from 'lucide-react'
+import { LinkedinIcon, GithubIcon, Sigma } from 'lucide-react'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table'
 import { Slider } from './ui/slider'
-import { CallPriceHeatmap, PutPriceHeatmap } from './Heatmap'
+import CircularIndeterminate from './Loader'
+import { request } from 'http'
+import Image from 'next/image'
+import Link from 'next/link'
+import ShinyButton from './magicui/shiny-button'
+import { Dock, DockIcon } from './magicui/dock'
 
 export default function BlackScholes() {
  
@@ -19,6 +24,10 @@ export default function BlackScholes() {
 
   const [heatmapData, setHeatmapData] = useState(null)
 
+  
+  const [callHeatmapUrl, setCallHeatmapUrl] = useState<string | null>(null);
+  const [putHeatmapUrl, setPutHeatmapUrl] = useState<string | null>(null);
+
   const [formData, setFormData] = useState({
     S: 100.00,
     K: 100.00,
@@ -27,7 +36,7 @@ export default function BlackScholes() {
     sigma: 0.20,
   });
 
-  const [result, setResult] = useState<{ call_price: number; put_price: number } | null>(null);
+  const [result, setResult] = useState<{ call_price: number; put_price: number, d1: number, d2: number } | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -84,46 +93,49 @@ export default function BlackScholes() {
       });
       if (!res.ok) throw new Error('Failed to fetch data');
       const data = await res.json();
-      setResult(data);  // Update result to include both call and put prices
+      setResult(data);  // Updated to include call_price, put_price, d1, and d2
     } catch (err) {
       setError('Failed to calculate the option prices. Please try again.');
     } finally {
       setLoading(false);
     }
   };
-
+  
   useEffect(() => {
-    const fetchHeatmapData = async () => {
+    const fetchData = async () => {
       try {
-        const res = await fetch('http://127.0.0.1:8000/heatmap', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            K: formData.K,
-            T: formData.T,
-            r: formData.r,
-            min_spot_price: minSpotPrice,
-            max_spot_price: maxSpotPrice,
-            min_volatility: minVolatility,
-            max_volatility: maxVolatility,
-            spot_steps: 10,
-            volatility_steps: 10,
-          }),
+  
+        const params = new URLSearchParams({
+          K: formData.K.toString(),
+          T: formData.T.toString(),
+          r: formData.r.toString(),
+          min_spot_price: minSpotPrice.toString(),
+          max_spot_price: maxSpotPrice.toString(),
+          min_volatility: minVolatility.toString(),
+          max_volatility: maxVolatility.toString(),
+          spot_steps: '10',
+          volatility_steps: '10',
         });
-        if (!res.ok) throw new Error('Failed to fetch heatmap data');
-        const data = await res.json();
-        setHeatmapData(data);
-      } catch (err) {
-        console.error('Failed to fetch heatmap data:', err);
+  
+        const callResponse = await fetch(`http://127.0.0.1:8000/heatmaps/call?${params.toString()}`);
+        if (!callResponse.ok) throw new Error('Failed to fetch call heatmap data');
+        const callUrl = URL.createObjectURL(await callResponse.blob());
+        setCallHeatmapUrl(callUrl);
+  
+        const putResponse = await fetch(`http://127.0.0.1:8000/heatmaps/put?${params.toString()}`);
+        if (!putResponse.ok) throw new Error('Failed to fetch put heatmap data');
+        const putUrl = URL.createObjectURL(await putResponse.blob());
+        setPutHeatmapUrl(putUrl);
+  
+      } catch (error) {
+        console.error('Error fetching data:', error);
       }
     };
+  
+    fetchData();
+  }, [formData, minSpotPrice, maxSpotPrice, minVolatility, maxVolatility]);  
+  
 
-    fetchHeatmapData();
-  }, [formData.K, formData.T, formData.r, minSpotPrice, maxSpotPrice, minVolatility, maxVolatility]);
-
-  if (!heatmapData) return <div>Loading...</div>;
 
   return (
     <div className="flex bg-white">
@@ -302,6 +314,26 @@ export default function BlackScholes() {
 
       {/* Main content */}
       <div className="flex-1 p-16 overflow-auto">
+        
+        <header className=" -mt-16  px-4 py-2 ">
+          <div className="flex justify-end space-x-4 mt-2">
+            <div className="relative -mt-9">
+              <Dock direction="middle">
+                <DockIcon>
+                  <Link href="https://www.linkedin.com/in/shaikhmubin/">
+                    <Image src="/linkedin.png" alt='linkedin' width={20} height={20}/>
+                  </Link>
+                </DockIcon>
+                <DockIcon>
+                  <Link href="https://www.github.com/shaikhmubin02/option-pricing-models">
+                    <Image src="/github.png" alt='github' width={20} height={20}/>
+                  </Link>
+                </DockIcon>
+              </Dock>
+            </div>
+          </div>
+        </header>
+
         <h2 className="text-3xl font-bold mb-6 pt-14">Black-Scholes Pricing Model</h2>
 
         <div className="w-full overflow-auto">
@@ -311,7 +343,7 @@ export default function BlackScholes() {
                 <TableHead className="w-[50px] border border-gray-300 font-medium p-1 text-center"></TableHead>
                 <TableHead className="border border-gray-300 font-medium p-1 text-right">Current Asset Price (S)</TableHead>
                 <TableHead className="border border-gray-300 font-medium p-1 text-right">Strike Price (K)</TableHead>
-                <TableHead className="border border-gray-300 font-medium p-1 text-right">Time to Maturity (t)</TableHead>
+                <TableHead className="border border-gray-300 font-medium p-1 text-right">Time to Maturity (T)</TableHead>
                 <TableHead className="border border-gray-300 font-medium p-1 text-right">Volatility (σ)</TableHead>
                 <TableHead className="border border-gray-300 font-medium p-1 text-right">Risk-Free Interest Rate (r)</TableHead>
               </TableRow>
@@ -328,7 +360,18 @@ export default function BlackScholes() {
             </TableBody>
           </Table>
         </div>
-
+        <div className='flex justify-start px-3'>
+        <div
+          className="w-[200px] mt-5 -mb-4 py-2 px-4 bg-gray-200 text-black font-semibold rounded-md"
+        >
+          d1: {result?.d1.toFixed(4)} 
+        </div> 
+        <div
+          className="w-[200px] ml-3 mt-5 -mb-4 py-2 px-4 bg-gray-200 text-black font-semibold rounded-md"
+        >
+          d2: {result?.d2.toFixed(4)}
+        </div>
+        </div> 
         <div className="grid grid-cols-2 gap-10 mt-10 mb-8">
           <Card className="bg-green-400 flex items-center justify-center">
             <CardContent className="p-4">
@@ -351,17 +394,16 @@ export default function BlackScholes() {
             <p>Explore how option prices fluctuate with varying &apos;Spot Prices and Volatility&apos; levels using interactive heatmap parameters, all while maintaining a constant &apos;Strike Price&apos;.</p>
           </CardContent>
         </Card>
-
-        <div className="grid grid-cols-2 gap-6">
+        <div className="flex justify-between">
           <div>
-            <h3 className="text-xl font-semibold mb-6 flex justify-center">Call Price Heatmap</h3>
-            <CallPriceHeatmap data={heatmapData}/>
+            <h3 className="flex justify-center text-2xl font-semibold">Call Price Heatmap</h3>
+            {callHeatmapUrl && <Image src={callHeatmapUrl} alt="Call Price Heatmap" width={700} height={700} />}
           </div>
           <div>
-            <h3 className="text-xl font-semibold mb-6 flex justify-center">Put Price Heatmap</h3>
-            <PutPriceHeatmap data={heatmapData}/>
-          </div>
+            <h3 className="flex justify-center text-2xl font-semibold">Put Price Heatmap</h3>
+            {putHeatmapUrl && <Image src={putHeatmapUrl} alt="Put Price Heatmap" width={700} height={700} />}
         </div>
+      </div>
       </div>
     </div>
   )

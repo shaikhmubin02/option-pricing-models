@@ -1,8 +1,13 @@
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
+from fastapi import FastAPI, HTTPException, Query
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
 from scipy.stats import norm
 import math
-from fastapi.middleware.cors import CORSMiddleware
+from io import BytesIO
+from pydantic import BaseModel
 
 app = FastAPI()
 
@@ -15,25 +20,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Define the request body model
-class BlackScholesRequest(BaseModel):
-    S: float  # Stock price
-    K: float  # Strike price
-    T: float  # Time to maturity (in years)
-    r: float  # Risk-free interest rate
-    sigma: float  # Volatility
-
-# Define the request body model
-class HeatmapRequest(BaseModel):
-    K: float  # Strike price
-    T: float  # Time to maturity (in years)
-    r: float  # Risk-free interest rate
-    min_spot_price: float  # Minimum spot price
-    max_spot_price: float  # Maximum spot price
-    min_volatility: float  # Minimum volatility
-    max_volatility: float  # Maximum volatility
-    spot_steps: int  # Number of steps for spot prices
-    volatility_steps: int  # Number of steps for volatilities
+class OptionPricingRequest(BaseModel):
+    S: float
+    K: float
+    T: float
+    r: float
+    sigma: float
 
 # Black-Scholes calculation function
 def black_scholes(S, K, T, r, sigma):
@@ -41,44 +33,76 @@ def black_scholes(S, K, T, r, sigma):
     d2 = d1 - sigma * math.sqrt(T)
     call_price = S * norm.cdf(d1) - K * math.exp(-r * T) * norm.cdf(d2)
     put_price = K * math.exp(-r * T) * norm.cdf(-d2) - S * norm.cdf(-d1)
-    return call_price, put_price
+    return call_price, put_price, d1, d2
 
-# Define the API endpoint
 @app.post("/calculate")
-def calculate_option_prices(request: BlackScholesRequest):
+async def calculate_option_prices(request: OptionPricingRequest):
     try:
-        call_price, put_price = black_scholes(
-            S=request.S,
-            K=request.K,
-            T=request.T,
-            r=request.r,
-            sigma=request.sigma
-        )
-        return {"call_price": call_price, "put_price": put_price}
+        S = request.S
+        K = request.K
+        T = request.T
+        r = request.r
+        sigma = request.sigma
+        
+        call_price, put_price, d1, d2 = black_scholes(S, K, T, r, sigma)
+        
+        return {
+            "call_price": call_price,
+            "put_price": put_price,
+            "d1": d1,
+            "d2": d2
+        }
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+    
+def calculate_heatmap(min_spot_price, max_spot_price, min_volatility, max_volatility, spot_steps, volatility_steps, K, T, r, option_type: str):
+    spot_range = np.linspace(min_spot_price, max_spot_price, spot_steps)
+    vol_range = np.linspace(min_volatility, max_volatility, volatility_steps)
+    
+    prices = np.zeros((len(vol_range), len(spot_range)))
+    
+    for i, sigma in enumerate(vol_range):
+        for j, S in enumerate(spot_range):
+            call_price, put_price, d1, d2 = black_scholes(S, K, T, r, sigma)
+            prices[i, j] = call_price if option_type == "call" else put_price
+    
+    fig, ax = plt.subplots(figsize=(10, 8))
+    sns.heatmap(prices, xticklabels=np.round(spot_range, 2), yticklabels=np.round(vol_range, 2), annot=True, fmt=".2f", cmap="viridis", ax=ax)
+    ax.set_title(option_type.upper())
+    ax.set_xlabel('Spot Price')
+    ax.set_ylabel('Volatility')
+    
+    buf = BytesIO()
+    plt.savefig(buf, format='png')
+    buf.seek(0)
+    plt.close(fig)
+    
+    return StreamingResponse(buf, media_type="image/png")
 
-# Define the API endpoint for Heatmap
-@app.post("/heatmap")
-def calculate_heatmap(request: HeatmapRequest):
-    try:
-        # Generate spot price and volatility ranges
-        S_range = [request.min_spot_price + i * (request.max_spot_price - request.min_spot_price) / (request.spot_steps - 1) for i in range(request.spot_steps)]
-        sigma_range = [request.min_volatility + i * (request.max_volatility - request.min_volatility) / (request.volatility_steps - 1) for i in range(request.volatility_steps)]
+@app.get("/heatmaps/call")
+async def heatmap_call(
+    min_spot_price: float,
+    max_spot_price: float,
+    min_volatility: float,
+    max_volatility: float,
+    spot_steps: int,
+    volatility_steps: int,
+    K: float,
+    T: float,
+    r: float
+):
+    return calculate_heatmap(min_spot_price, max_spot_price, min_volatility, max_volatility, spot_steps, volatility_steps, K, T, r, option_type="call")
 
-        call_prices = []
-        put_prices = []
-
-        for S in S_range:
-            call_row = []
-            put_row = []
-            for sigma in sigma_range:
-                call_price, put_price = black_scholes(S, request.K, request.T, request.r, sigma)
-                call_row.append(call_price)
-                put_row.append(put_price)
-            call_prices.append(call_row)
-            put_prices.append(put_row)
-
-        return {"call_prices": call_prices, "put_prices": put_prices, "spot_prices": S_range, "volatilities": sigma_range}
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+@app.get("/heatmaps/put")
+async def heatmap_put(
+    min_spot_price: float,
+    max_spot_price: float,
+    min_volatility: float,
+    max_volatility: float,
+    spot_steps: int,
+    volatility_steps: int,
+    K: float,
+    T: float,
+    r: float
+):
+    return calculate_heatmap(min_spot_price, max_spot_price, min_volatility, max_volatility, spot_steps, volatility_steps, K, T, r, option_type="put")

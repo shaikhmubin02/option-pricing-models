@@ -2,7 +2,9 @@ import React from 'react'
 
 const montecarlo = () => {
   return (
-    <div>montecarlo</div>
+    <div>
+        <div>montecarlo</div>
+    </div>
   )
 }
 
