@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
-import { LinkedinIcon, GithubIcon, Sigma } from 'lucide-react'
+import { LinkedinIcon, GithubIcon, Sigma, Download } from 'lucide-react'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table'
 import { Slider } from './ui/slider'
 import CircularIndeterminate from './Loader'
@@ -396,14 +396,38 @@ export default function BlackScholes() {
         </Card>
         <div className="flex justify-between">
           <div>
-            <h3 className="flex justify-center text-2xl font-semibold">Call Price Heatmap</h3>
-            {callHeatmapUrl && <Image src={callHeatmapUrl} alt="Call Price Heatmap" width={700} height={700} />}
+            <h3 className="flex justify-center text-sm font-normal">Call Price Heatmap</h3>
+            {callHeatmapUrl && (
+              <>
+                <Image src={callHeatmapUrl} alt="Call Price Heatmap" width={700} height={700} />
+                <a
+                  href={callHeatmapUrl}
+                  download="call_price_heatmap.png"
+                  className="mt-2 ml-16 inline-flex items-center px-2 py-1 bg-gray-400 text-white rounded hover:bg-gray-500"
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  Download Call Heatmap
+                </a>
+              </>
+            )}
           </div>
           <div>
-            <h3 className="flex justify-center text-2xl font-semibold">Put Price Heatmap</h3>
-            {putHeatmapUrl && <Image src={putHeatmapUrl} alt="Put Price Heatmap" width={700} height={700} />}
+            <h3 className="flex justify-center text-sm font-normal">Put Price Heatmap</h3>
+            {putHeatmapUrl && (
+              <>
+                <Image src={putHeatmapUrl} alt="Put Price Heatmap" width={700} height={700} />
+                <a
+                  href={putHeatmapUrl}
+                  download="put_price_heatmap.png"
+                  className="mt-2 ml-16 inline-flex items-center px-2 py-1 bg-gray-400 text-white rounded hover:bg-gray-500"
+                >
+                  <Download className="text-sm w-4 h-4 mr-2" />
+                  Download Put Heatmap
+                </a>
+              </>
+            )}
+          </div>
         </div>
-      </div>
       </div>
     </div>
   )

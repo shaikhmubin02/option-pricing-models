@@ -8,6 +8,7 @@ from scipy.stats import norm
 import math
 from io import BytesIO
 from pydantic import BaseModel
+from mangum import Mangum
 
 app = FastAPI()
 
@@ -106,3 +107,6 @@ async def heatmap_put(
     r: float
 ):
     return calculate_heatmap(min_spot_price, max_spot_price, min_volatility, max_volatility, spot_steps, volatility_steps, K, T, r, option_type="put")
+
+# Add this at the end of the file
+handler = Mangum(app)

@@ -1,9 +1,10 @@
+import MonteCarlo from '@/components/MonteCarlo'
 import React from 'react'
 
 const montecarlo = () => {
   return (
     <div>
-        <div>montecarlo</div>
+        <MonteCarlo />
     </div>
   )
 }

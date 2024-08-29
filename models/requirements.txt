@@ -1,5 +1,9 @@
 fastapi
 uvicorn
-scipy  # For the Black-Scholes formula calculation
+numpy
+matplotlib
+seaborn
+scipy
+pydantic
 
 # uvicorn app.main:app --reload
