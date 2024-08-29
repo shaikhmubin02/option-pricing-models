@@ -108,5 +108,9 @@ async def heatmap_put(
 ):
     return calculate_heatmap(min_spot_price, max_spot_price, min_volatility, max_volatility, spot_steps, volatility_steps, K, T, r, option_type="put")
 
+@app.get("/")
+async def root():
+    return {"message": "Hello, World!"}
+
 # Add this at the end of the file
 handler = Mangum(app)
