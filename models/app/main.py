@@ -9,6 +9,7 @@ import math
 from io import BytesIO
 from pydantic import BaseModel
 from mangum import Mangum
+from typing import List
 
 app = FastAPI()
 
@@ -112,5 +113,96 @@ async def heatmap_put(
 async def root():
     return {"message": "Hello, World!"}
 
-# Add this at the end of the file
-handler = Mangum(app)
+class OptionParams(BaseModel):
+    stock_price: float
+    strike_price: float
+    risk_free_rate: float
+    volatility: float
+    time_to_expiration: float
+    steps: int
+    is_american: bool
+
+class OptionPrices(BaseModel):
+    call_price: float
+    put_price: float
+    call_tree: List[List[float]]
+    put_tree: List[List[float]]
+    greeks: dict
+
+@app.post("/calculate_option_prices", response_model=OptionPrices)
+def calculate_option_prices(params: OptionParams):
+    S = params.stock_price
+    K = params.strike_price
+    r = params.risk_free_rate
+    sigma = params.volatility
+    T = params.time_to_expiration
+    N = params.steps
+    is_american = params.is_american
+
+    dt = T / N
+    u = np.exp(sigma * np.sqrt(dt))
+    d = 1 / u
+    p = (np.exp(r * dt) - d) / (u - d)
+
+    call_tree = np.zeros((N + 1, N + 1))
+    put_tree = np.zeros((N + 1, N + 1))
+
+    for j in range(N + 1):
+        call_tree[N, j] = max(0, S * (u ** j) * (d ** (N - j)) - K)
+        put_tree[N, j] = max(0, K - S * (u ** j) * (d ** (N - j)))
+
+    for i in range(N - 1, -1, -1):
+        for j in range(i + 1):
+            call_value = np.exp(-r * dt) * (p * call_tree[i + 1, j + 1] + (1 - p) * call_tree[i + 1, j])
+            put_value = np.exp(-r * dt) * (p * put_tree[i + 1, j + 1] + (1 - p) * put_tree[i + 1, j])
+
+            if is_american:
+                stock_price = S * (u ** j) * (d ** (i - j))
+                call_tree[i, j] = max(call_value, stock_price - K)
+                put_tree[i, j] = max(put_value, K - stock_price)
+            else:
+                call_tree[i, j] = call_value
+                put_tree[i, j] = put_value
+
+    call_price = call_tree[0, 0]
+    put_price = put_tree[0, 0]
+
+    # Calculate Greeks
+    delta = (call_tree[1, 1] - call_tree[1, 0]) / (S * u - S * d)
+    gamma = ((call_tree[2, 2] - call_tree[2, 1]) / (S * u * u - S) -
+             (call_tree[2, 1] - call_tree[2, 0]) / (S - S * d * d)) / (0.5 * (S * u * u - S * d * d))
+    theta = (call_tree[1, 1] - call_tree[0, 0]) / (2 * dt)
+
+    # Vega calculation (approximation)
+    def calculate_price_with_vol(vol):
+        u_new = np.exp(vol * np.sqrt(dt))
+        d_new = 1 / u_new
+        p_new = (np.exp(r * dt) - d_new) / (u_new - d_new)
+        call_tree_new = np.zeros((N + 1, N + 1))
+        for j in range(N + 1):
+            call_tree_new[N, j] = max(0, S * (u_new ** j) * (d_new ** (N - j)) - K)
+        for i in range(N - 1, -1, -1):
+            for j in range(i + 1):
+                call_tree_new[i, j] = np.exp(-r * dt) * (p_new * call_tree_new[i + 1, j + 1] + (1 - p_new) * call_tree_new[i + 1, j])
+        return call_tree_new[0, 0]
+
+    vega = (calculate_price_with_vol(sigma + 0.01) - call_price) / 0.01
+
+    greeks = {
+        "delta": delta,
+        "gamma": gamma,
+        "theta": theta,
+        "vega": vega
+    }
+
+    return OptionPrices(
+        call_price=call_price,
+        put_price=put_price,
+        call_tree=call_tree.tolist(),
+        put_tree=put_tree.tolist(),
+        greeks=greeks
+    )
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)

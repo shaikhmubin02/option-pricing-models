@@ -92,7 +92,31 @@ export default function Component() {
   const [optionValueDistribution, setOptionValueDistribution] = useState([])
   const [probabilityITM, setProbabilityITM] = useState({ call: 0, put: 0 })
 
+  // Initialize inputsChanged to true
+  const [inputsChanged, setInputsChanged] = useState(true)
+
+  // Modify the adjustValue function to set inputsChanged to true
+  const adjustValue = (setter: React.Dispatch<React.SetStateAction<number>>, value: number, increment: number) => {
+    setter(prevValue => {
+      const newValue = Math.max(0, Number((prevValue + increment).toFixed(2)))
+      setInputsChanged(true)
+      return newValue
+    })
+  }
+
+  // Create a new function to handle input changes
+  const handleInputChange = (setter: React.Dispatch<React.SetStateAction<number>>, value: number) => {
+    setter(Number(value))
+    setInputsChanged(true)
+  }
+
+  // Modify the runSimulation function
   const runSimulation = () => {
+    if (!inputsChanged) {
+      console.log("Inputs haven't changed. Skipping simulation.")
+      return
+    }
+
     const startTime = performance.now()
     const dt = timeToMaturity / numSteps
     const drift = (riskFreeRate - 0.5 * volatility * volatility) * dt
@@ -294,15 +318,13 @@ export default function Component() {
     setSensitivityData(sensitivityData)
     setStrategyPayoff(strategyPayoff)
     setExecutionTime(performance.now() - startTime)
+    setInputsChanged(false)
   }
 
-  const adjustValue = (setter: React.Dispatch<React.SetStateAction<number>>, value: number, increment: number) => {
-    setter(prevValue => Math.max(0, Number((prevValue + increment).toFixed(2))))
-  }
-
+  // Modify the useEffect hook
   useEffect(() => {
     runSimulation()
-  }, [])
+  }, []) // Empty dependency array means this effect runs once on mount
 
   return (
     <div className="flex flex-col lg:flex-row">
@@ -312,7 +334,13 @@ export default function Component() {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            <Button onClick={runSimulation} className="mt-4 bg-blue-500 hover:bg-blue-600">Run Simulation</Button>
+            <Button 
+              onClick={runSimulation} 
+              className="mt-4 bg-blue-500 hover:bg-blue-600"
+              disabled={!inputsChanged}
+            >
+              Run Simulation
+            </Button>
             <div>
               <Label htmlFor="spot">Spot Price</Label>
               <div className="flex items-center">
@@ -321,7 +349,7 @@ export default function Component() {
                   type="number"
                   step="0.01"
                   value={spot}
-                  onChange={(e) => setSpot(Number(e.target.value))}
+                  onChange={(e) => handleInputChange(setSpot, Number(e.target.value))}
                   className="mr-2"
                 />
                 <Button onClick={() => adjustValue(setSpot, spot, -0.01)} variant="outline" size="icon" className="bg-red-100 hover:bg-red-200">
@@ -340,7 +368,7 @@ export default function Component() {
                   type="number"
                   step="0.01"
                   value={strike}
-                  onChange={(e) => setStrike(Number(e.target.value))}
+                  onChange={(e) => handleInputChange(setStrike, Number(e.target.value))}
                   className="mr-2"
                 />
                 <Button onClick={() => adjustValue(setStrike, strike, -0.01)} variant="outline" size="icon" className="bg-red-100 hover:bg-red-200">
@@ -358,7 +386,7 @@ export default function Component() {
                   id="volatility"
                   type="number"
                   value={volatility}
-                  onChange={(e) => setVolatility(Number(e.target.value))}
+                  onChange={(e) => handleInputChange(setVolatility, Number(e.target.value))}
                   className="mr-2"
                 />
                 <Button onClick={() => adjustValue(setVolatility, volatility, -0.01)} variant="outline" size="icon" className="bg-red-100 hover:bg-red-200">
@@ -377,7 +405,7 @@ export default function Component() {
                   type="number"
                   step="0.01"
                   value={riskFreeRate}
-                  onChange={(e) => setRiskFreeRate(Number(e.target.value))}
+                  onChange={(e) => handleInputChange(setRiskFreeRate, Number(e.target.value))}
                   className="mr-2"
                 />
                 <Button onClick={() => adjustValue(setRiskFreeRate, riskFreeRate, -0.01)} variant="outline" size="icon" className="bg-red-100 hover:bg-red-200">
@@ -396,7 +424,7 @@ export default function Component() {
                   type="number"
                   step="0.1"
                   value={timeToMaturity}
-                  onChange={(e) => setTimeToMaturity(Number(e.target.value))}
+                  onChange={(e) => handleInputChange(setTimeToMaturity, Number(e.target.value))}
                   className="mr-2"
                 />
                 <Button onClick={() => adjustValue(setTimeToMaturity, timeToMaturity, -0.1)} variant="outline" size="icon" className="bg-red-100 hover:bg-red-200">
@@ -414,7 +442,7 @@ export default function Component() {
                   id="numSimulations"
                   type="number"
                   value={numSimulations}
-                  onChange={(e) => setNumSimulations(Number(e.target.value))}
+                  onChange={(e) => handleInputChange(setNumSimulations, Number(e.target.value))}
                   className="mr-2"
                 />
                 <Button onClick={() => adjustValue(setNumSimulations, numSimulations, -100)} variant="outline" size="icon" className="bg-red-100 hover:bg-red-200">
