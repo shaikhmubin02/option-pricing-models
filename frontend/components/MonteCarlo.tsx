@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar, ScatterChart, Scatter, AreaChart, Area } from 'recharts'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -15,6 +15,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Dock, DockIcon } from './magicui/dock'
 import Link from 'next/link'
 import Image from 'next/image'
+import debounce from 'lodash/debounce'
 
 // Add this function at the top of your file, outside the component
 const erf = (x: number): number => {
@@ -92,31 +93,21 @@ export default function Component() {
   const [optionValueDistribution, setOptionValueDistribution] = useState([])
   const [probabilityITM, setProbabilityITM] = useState({ call: 0, put: 0 })
 
-  // Initialize inputsChanged to true
-  const [inputsChanged, setInputsChanged] = useState(true)
-
-  // Modify the adjustValue function to set inputsChanged to true
+  // Modify the adjustValue function
   const adjustValue = (setter: React.Dispatch<React.SetStateAction<number>>, value: number, increment: number) => {
     setter(prevValue => {
       const newValue = Math.max(0, Number((prevValue + increment).toFixed(2)))
-      setInputsChanged(true)
       return newValue
     })
   }
 
-  // Create a new function to handle input changes
+  // Modify the handleInputChange function
   const handleInputChange = (setter: React.Dispatch<React.SetStateAction<number>>, value: number) => {
     setter(Number(value))
-    setInputsChanged(true)
   }
 
   // Modify the runSimulation function
-  const runSimulation = () => {
-    if (!inputsChanged) {
-      console.log("Inputs haven't changed. Skipping simulation.")
-      return
-    }
-
+  const runSimulation = useCallback(() => {
     const startTime = performance.now()
     const dt = timeToMaturity / numSteps
     const drift = (riskFreeRate - 0.5 * volatility * volatility) * dt
@@ -318,26 +309,19 @@ export default function Component() {
     setSensitivityData(sensitivityData)
     setStrategyPayoff(strategyPayoff)
     setExecutionTime(performance.now() - startTime)
-    setInputsChanged(false)
-  }
-
-  // Modify the useEffect hook
-  useEffect(() => {
-    runSimulation()
-  }, []) // Empty dependency array means this effect runs once on mount
+  }, [spot, strike, volatility, riskFreeRate, timeToMaturity, numSimulations, strategyType])
 
   return (
     <div className="flex flex-col lg:flex-row">
       <Card className="bg-gray-100 rounded-none border-none">
         <CardHeader>
-          <CardTitle className='text-lg'>Input Parameters</CardTitle>
+          <CardTitle className='text-lg font-semibold -mb-4'>Input Parameters</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
             <Button 
               onClick={runSimulation} 
               className="mt-4 bg-blue-500 hover:bg-blue-600"
-              disabled={!inputsChanged}
             >
               Run Simulation
             </Button>
@@ -352,10 +336,10 @@ export default function Component() {
                   onChange={(e) => handleInputChange(setSpot, Number(e.target.value))}
                   className="mr-2"
                 />
-                <Button onClick={() => adjustValue(setSpot, spot, -0.01)} variant="outline" size="icon" className="bg-red-100 hover:bg-red-200">
+                <Button onClick={() => adjustValue(setSpot, spot, -0.01)} variant="outline" size="icon" className=" hover:bg-red-200">
                   <Minus className="h-4 w-4" />
                 </Button>
-                <Button onClick={() => adjustValue(setSpot, spot, 0.01)} variant="outline" size="icon" className="bg-green-100 hover:bg-green-200 ml-1">
+                <Button onClick={() => adjustValue(setSpot, spot, 0.01)} variant="outline" size="icon" className=" hover:bg-green-200 ml-1">
                   <Plus className="h-4 w-4" />
                 </Button>
               </div>
@@ -371,10 +355,10 @@ export default function Component() {
                   onChange={(e) => handleInputChange(setStrike, Number(e.target.value))}
                   className="mr-2"
                 />
-                <Button onClick={() => adjustValue(setStrike, strike, -0.01)} variant="outline" size="icon" className="bg-red-100 hover:bg-red-200">
+                <Button onClick={() => adjustValue(setStrike, strike, -0.01)} variant="outline" size="icon" className=" hover:bg-red-200">
                   <Minus className="h-4 w-4" />
                 </Button>
-                <Button onClick={() => adjustValue(setStrike, strike, 0.01)} variant="outline" size="icon" className="bg-green-100 hover:bg-green-200 ml-1">
+                <Button onClick={() => adjustValue(setStrike, strike, 0.01)} variant="outline" size="icon" className=" hover:bg-green-200 ml-1">
                   <Plus className="h-4 w-4" />
                 </Button>
               </div>
@@ -389,10 +373,10 @@ export default function Component() {
                   onChange={(e) => handleInputChange(setVolatility, Number(e.target.value))}
                   className="mr-2"
                 />
-                <Button onClick={() => adjustValue(setVolatility, volatility, -0.01)} variant="outline" size="icon" className="bg-red-100 hover:bg-red-200">
+                <Button onClick={() => adjustValue(setVolatility, volatility, -0.01)} variant="outline" size="icon" className=" hover:bg-red-200">
                   <Minus className="h-4 w-4" />
                 </Button>
-                <Button onClick={() => adjustValue(setVolatility, volatility, 0.01)} variant="outline" size="icon" className="bg-green-100 hover:bg-green-200 ml-1">
+                <Button onClick={() => adjustValue(setVolatility, volatility, 0.01)} variant="outline" size="icon" className=" hover:bg-green-200 ml-1">
                   <Plus className="h-4 w-4" />
                 </Button>
               </div>
@@ -408,10 +392,10 @@ export default function Component() {
                   onChange={(e) => handleInputChange(setRiskFreeRate, Number(e.target.value))}
                   className="mr-2"
                 />
-                <Button onClick={() => adjustValue(setRiskFreeRate, riskFreeRate, -0.01)} variant="outline" size="icon" className="bg-red-100 hover:bg-red-200">
+                <Button onClick={() => adjustValue(setRiskFreeRate, riskFreeRate, -0.01)} variant="outline" size="icon" className=" hover:bg-red-200">
                   <Minus className="h-4 w-4" />
                 </Button>
-                <Button onClick={() => adjustValue(setRiskFreeRate, riskFreeRate, 0.01)} variant="outline" size="icon" className="bg-green-100 hover:bg-green-200 ml-1">
+                <Button onClick={() => adjustValue(setRiskFreeRate, riskFreeRate, 0.01)} variant="outline" size="icon" className=" hover:bg-green-200 ml-1">
                   <Plus className="h-4 w-4" />
                 </Button>
               </div>
@@ -427,10 +411,10 @@ export default function Component() {
                   onChange={(e) => handleInputChange(setTimeToMaturity, Number(e.target.value))}
                   className="mr-2"
                 />
-                <Button onClick={() => adjustValue(setTimeToMaturity, timeToMaturity, -0.1)} variant="outline" size="icon" className="bg-red-100 hover:bg-red-200">
+                <Button onClick={() => adjustValue(setTimeToMaturity, timeToMaturity, -0.1)} variant="outline" size="icon" className=" hover:bg-red-200">
                   <Minus className="h-4 w-4" />
                 </Button>
-                <Button onClick={() => adjustValue(setTimeToMaturity, timeToMaturity, 0.1)} variant="outline" size="icon" className="bg-green-100 hover:bg-green-200 ml-1">
+                <Button onClick={() => adjustValue(setTimeToMaturity, timeToMaturity, 0.1)} variant="outline" size="icon" className=" hover:bg-green-200 ml-1">
                   <Plus className="h-4 w-4" />
                 </Button>
               </div>
@@ -445,10 +429,10 @@ export default function Component() {
                   onChange={(e) => handleInputChange(setNumSimulations, Number(e.target.value))}
                   className="mr-2"
                 />
-                <Button onClick={() => adjustValue(setNumSimulations, numSimulations, -100)} variant="outline" size="icon" className="bg-red-100 hover:bg-red-200">
+                <Button onClick={() => adjustValue(setNumSimulations, numSimulations, -100)} variant="outline" size="icon" className=" hover:bg-red-200">
                   <Minus className="h-4 w-4" />
                 </Button>
-                <Button onClick={() => adjustValue(setNumSimulations, numSimulations, 100)} variant="outline" size="icon" className="bg-green-100 hover:bg-green-200 ml-1">
+                <Button onClick={() => adjustValue(setNumSimulations, numSimulations, 100)} variant="outline" size="icon" className=" hover:bg-green-200 ml-1">
                   <Plus className="h-4 w-4" />
                 </Button>
               </div>
@@ -469,86 +453,85 @@ export default function Component() {
           </div>
         </CardContent>
       </Card>
-      <div className="w-full lg:w-3/4 space-y-4 p-3 mt-16">
+      <div className="w-full lg:w-3/4 space-y-4 p-3">
         <Card className='rounded-none border-none'>
-        <header className=" -mt-16  px-4 py-2 ">
-          <div className="flex justify-end space-x-4 mt-2">
-            <div className="relative -mt-9">
-              <Dock direction="middle">
-                <DockIcon>
-                  <Link href="https://www.linkedin.com/in/shaikhmubin/">
-                    <Image src="/linkedin.png" alt='linkedin' width={20} height={20}/>
-                  </Link>
-                </DockIcon>
-                <DockIcon>
-                  <Link href="https://www.github.com/shaikhmubin02/option-pricing-models">
-                    <Image src="/github.png" alt='github' width={20} height={20}/>
-                  </Link>
-                </DockIcon>
-              </Dock>
-            </div>
-          </div>
-        </header>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Dice1Icon className="h-5 w-5" />
-                Monte Carlo Simulation
+              Monte Carlo Simulation
             </CardTitle>
             <CardDescription>Visualize price paths and analyze option prices</CardDescription>
           </CardHeader>
-          <CardContent className="flex-col items-start">
-            <div className="grid grid-cols-2 gap-4 w-full">
-              <div>
-                <h3 className="text-lg font-semibold">Call Option</h3>
-                <p className="text-2xl font-bold">${callOptionPrice.toFixed(2)}</p>
-                  <p className="text-sm text-muted-foreground">
-                    95% CI: [${callConfidenceInterval[0].toFixed(2)}, ${callConfidenceInterval[1].toFixed(2)}]
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    Black-Scholes: ${callBlackScholesPrice.toFixed(2)}
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    Implied Volatility: {(impliedVolCall * 100).toFixed(2)}%
-                  </p>
-              </div>
-              <div>
-                <h3 className="text-lg font-semibold">Put Option</h3>
-                <p className="text-2xl font-bold">${putOptionPrice.toFixed(2)}</p>
-                  <p className="text-sm text-muted-foreground">
-                    95% CI: [${putConfidenceInterval[0].toFixed(2)}, ${putConfidenceInterval[1].toFixed(2)}]
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    Black-Scholes: ${putBlackScholesPrice.toFixed(2)}
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    Implied Volatility: {(impliedVolPut * 100).toFixed(2)}%
-                  </p>
+          <header className="-mt-24 px-4 py-2">
+            <div className="flex justify-end space-x-4 mt-2">
+              <div className="relative -mt-9">
+                <Dock direction="middle">
+                  <DockIcon>
+                    <Link href="https://www.linkedin.com/in/shaikhmubin/">
+                      <Image src="/linkedin.png" alt='linkedin' width={20} height={20}/>
+                    </Link>
+                  </DockIcon>
+                  <DockIcon>
+                    <Link href="https://www.github.com/shaikhmubin02/option-pricing-models">
+                      <Image src="/github.png" alt='github' width={20} height={20}/>
+                    </Link>
+                  </DockIcon>
+                </Dock>
               </div>
             </div>
-              <div className="mt-4 w-full">
-                <h3 className="text-lg font-semibold mb-2">Greeks</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <h4 className="font-semibold">Call Option</h4>
-                    <p>Delta: {callGreeks.delta.toFixed(4)}</p>
-                    <p>Gamma: {callGreeks.gamma.toFixed(4)}</p>
-                    <p>Theta: {callGreeks.theta.toFixed(4)}</p>
-                    <p>Vega: {callGreeks.vega.toFixed(4)}</p>
+          </header>
+          <CardContent className="flex-col items-start space-y-4 mt-10">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 w-full">
+              <Card className="col-span-1">
+                <CardHeader>
+                  <CardTitle className="text-sm">Call Option</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-lg font-bold text-green-400">${callOptionPrice.toFixed(2)}</p>
+                  <p className="text-xs text-muted-foreground">
+                    Black-Scholes: ${callBlackScholesPrice.toFixed(2)}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Implied Volatility: {(impliedVolCall * 100).toFixed(2)}%
+                  </p>
+                </CardContent>
+              </Card>
+              <Card className="col-span-1">
+                <CardHeader>
+                  <CardTitle className="text-sm">Put Option</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-lg font-bold text-red-400">${putOptionPrice.toFixed(2)}</p>
+                  <p className="text-xs text-muted-foreground">
+                    Black-Scholes: ${putBlackScholesPrice.toFixed(2)}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Implied Volatility: {(impliedVolPut * 100).toFixed(2)}%
+                  </p>
+                </CardContent>
+              </Card>
+              <Card className="col-span-1">
+                <CardHeader>
+                  <CardTitle className="text-sm">Greeks</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-xs">
+                    <p>Δ: {callGreeks.delta.toFixed(3)} / {putGreeks.delta.toFixed(3)}</p>
+                    <p>Γ: {callGreeks.gamma.toFixed(3)}</p>
+                    <p>Θ: {callGreeks.theta.toFixed(3)} / {putGreeks.theta.toFixed(3)}</p>
+                    <p>V: {callGreeks.vega.toFixed(3)}</p>
                   </div>
-                  <div>
-                    <h4 className="font-semibold">Put Option</h4>
-                    <p>Delta: {putGreeks.delta.toFixed(4)}</p>
-                    <p>Gamma: {putGreeks.gamma.toFixed(4)}</p>
-                    <p>Theta: {putGreeks.theta.toFixed(4)}</p>
-                    <p>Vega: {putGreeks.vega.toFixed(4)}</p>
-                  </div>
-                </div>
-              </div>
-              <div className="mt-4 w-full">
-                <h3 className="text-lg font-semibold">Put-Call Parity</h3>
-                <p>Difference: ${putCallParity.toFixed(4)}</p>
-              </div>
-            <div className="mt-4 w-full">
+                </CardContent>
+              </Card>
+              <Card className="col-span-1">
+                <CardHeader>
+                  <CardTitle className="text-sm">Put-Call Parity</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-xs">Diff: ${putCallParity.toFixed(4)}</p>
+                </CardContent>
+              </Card>
+            </div>
+            <div className="w-full">
               <p className="text-sm text-muted-foreground">Execution time: {executionTime.toFixed(2)} ms</p>
             </div>
           </CardContent>
@@ -561,11 +544,10 @@ export default function Component() {
               </Alert>
             )}
             <Tabs defaultValue="pricePaths">
-              <TabsList className="grid w-full grid-cols-4">
+              <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="pricePaths">Price Paths</TabsTrigger>
                 <TabsTrigger value="optionValue">Option Value</TabsTrigger>
                 <TabsTrigger value="greeks">Greeks</TabsTrigger>
-                <TabsTrigger value="advanced">Advanced</TabsTrigger>
               </TabsList>
               <TabsContent value="pricePaths">
                 <div className="h-80 mb-4">
@@ -619,7 +601,6 @@ export default function Component() {
                   </ResponsiveContainer>
                 </div>
               </TabsContent>
-              <TabsContent value="advanced">
                 <Tabs>
                   <TabsList className="grid w-full grid-cols-3">
                     <TabsTrigger value="sensitivity">Sensitivity</TabsTrigger>
@@ -669,7 +650,6 @@ export default function Component() {
                     </div>
                   </TabsContent>
                 </Tabs>
-              </TabsContent>
             </Tabs>
           </CardContent>
         </Card>

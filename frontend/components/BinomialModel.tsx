@@ -12,7 +12,6 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
-import { Input } from "@/components/ui/input"
 
 interface NodeProps {
   value: number
@@ -64,39 +63,92 @@ export default function EnhancedBinomialOptionPricingModel() {
   const [isAmerican, setIsAmerican] = useState(false)
   const [greeks, setGreeks] = useState({ delta: null, gamma: null, theta: null, vega: null })
 
-  const calculateOptionPrices = async () => {
-    const response = await fetch('http://127.0.0.1:8000/calculate_option_prices', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        stock_price: stockPrice,
-        strike_price: strikePrice,
-        risk_free_rate: riskFreeRate,
-        volatility: volatility,
-        time_to_expiration: timeToExpiration,
-        steps: steps,
-        is_american: isAmerican,
-      }),
-    })
+  const calculateOptionPrices = () => {
+    const deltaT = timeToExpiration / steps
+    const u = Math.exp(volatility * Math.sqrt(deltaT))
+    const d = 1 / u
+    const r = riskFreeRate
+    const p = (Math.exp(r * deltaT) - d) / (u - d)
 
-    if (response.ok) {
-      const data = await response.json()
-      setCallPrice(data.call_price)
-      setPutPrice(data.put_price)
-      setOptionValues({ call: data.call_tree, put: data.put_tree })
-      setGreeks(data.greeks)
+    let callValues: number[][] = Array(steps + 1).fill(0).map(() => Array(steps + 1).fill(0))
+    let putValues: number[][] = Array(steps + 1).fill(0).map(() => Array(steps + 1).fill(0))
 
-      const newChartData = data.call_tree.map((value, index) => ({
-        step: index,
-        call: value[0],
-        put: data.put_tree[index][0],
-      }))
-      setChartData(newChartData)
-    } else {
-      console.error('Failed to fetch option prices')
+    for (let j = 0; j <= steps; j++) {
+      const stockPriceAtNode = stockPrice * Math.pow(u, j) * Math.pow(d, steps - j)
+      callValues[steps][j] = Math.max(0, stockPriceAtNode - strikePrice)
+      putValues[steps][j] = Math.max(0, strikePrice - stockPriceAtNode)
     }
+
+    for (let i = steps - 1; i >= 0; i--) {
+      for (let j = 0; j <= i; j++) {
+        const stockPriceAtNode = stockPrice * Math.pow(u, j) * Math.pow(d, i - j)
+        const callValue = Math.exp(-r * deltaT) * (p * callValues[i + 1][j + 1] + (1 - p) * callValues[i + 1][j])
+        const putValue = Math.exp(-r * deltaT) * (p * putValues[i + 1][j + 1] + (1 - p) * putValues[i + 1][j])
+
+        if (isAmerican) {
+          callValues[i][j] = Math.max(callValue, stockPriceAtNode - strikePrice)
+          putValues[i][j] = Math.max(putValue, strikePrice - stockPriceAtNode)
+        } else {
+          callValues[i][j] = callValue
+          putValues[i][j] = putValue
+        }
+      }
+    }
+
+    setCallPrice(callValues[0][0])
+    setPutPrice(putValues[0][0])
+    setOptionValues({ call: callValues, put: putValues })
+
+    const delta = (callValues[1][1] - callValues[1][0]) / (stockPrice * u - stockPrice * d)
+    const gamma = ((callValues[2][2] - callValues[2][1]) / (stockPrice * u * u - stockPrice) -
+                   (callValues[2][1] - callValues[2][0]) / (stockPrice - stockPrice * d * d)) /
+                  (0.5 * (stockPrice * u * u - stockPrice * d * d))
+    const theta = (callValues[1][1] - callValues[0][0]) / (2 * deltaT)
+    const vega = (calculateOptionPricesWithVolatility(volatility + 0.01)[0] - callValues[0][0]) / 0.01
+
+    setGreeks({ delta, gamma, theta, vega })
+
+    const newChartData = callValues.map((row, index) => ({
+      step: index,
+      call: row[0],
+      put: putValues[index][0],
+    }))
+    setChartData(newChartData)
+  }
+
+  const calculateOptionPricesWithVolatility = (newVolatility: number) => {
+    const deltaT = timeToExpiration / steps
+    const u = Math.exp(newVolatility * Math.sqrt(deltaT))
+    const d = 1 / u
+    const r = riskFreeRate
+    const p = (Math.exp(r * deltaT) - d) / (u - d)
+
+    let callValues: number[][] = Array(steps + 1).fill(0).map(() => Array(steps + 1).fill(0))
+    let putValues: number[][] = Array(steps + 1).fill(0).map(() => Array(steps + 1).fill(0))
+
+    for (let j = 0; j <= steps; j++) {
+      const stockPriceAtNode = stockPrice * Math.pow(u, j) * Math.pow(d, steps - j)
+      callValues[steps][j] = Math.max(0, stockPriceAtNode - strikePrice)
+      putValues[steps][j] = Math.max(0, strikePrice - stockPriceAtNode)
+    }
+
+    for (let i = steps - 1; i >= 0; i--) {
+      for (let j = 0; j <= i; j++) {
+        const stockPriceAtNode = stockPrice * Math.pow(u, j) * Math.pow(d, i - j)
+        const callValue = Math.exp(-r * deltaT) * (p * callValues[i + 1][j + 1] + (1 - p) * callValues[i + 1][j])
+        const putValue = Math.exp(-r * deltaT) * (p * putValues[i + 1][j + 1] + (1 - p) * putValues[i + 1][j])
+
+        if (isAmerican) {
+          callValues[i][j] = Math.max(callValue, stockPriceAtNode - strikePrice)
+          putValues[i][j] = Math.max(putValue, strikePrice - stockPriceAtNode)
+        } else {
+          callValues[i][j] = callValue
+          putValues[i][j] = putValue
+        }
+      }
+    }
+
+    return [callValues[0][0], putValues[0][0]]
   }
 
   const adjustValue = (setter: React.Dispatch<React.SetStateAction<number>>, value: number, increment: number) => {
@@ -104,36 +156,24 @@ export default function EnhancedBinomialOptionPricingModel() {
   }
 
   const ParameterControl = ({ label, value, setValue, step = 0.01, minValue = 0 }) => (
-    <div className="flex flex-col space-y-2">
-      <Label htmlFor={label} className="text-sm font-medium">{label}:</Label>
-      <div className="flex items-center space-x-2">
-        <div className="flex-grow">
-          <Input
-            id={label}
-            type="number"
-            value={value}
-            onChange={(e) => setValue(Math.max(minValue, Number(e.target.value)))}
-            className="w-full"
-            step={step}
-          />
-        </div>
-        <div className="flex space-x-1">
-          <Button 
-            variant="outline" 
-            size="icon" 
-            onClick={() => adjustValue(setValue, value, -step)}
-            disabled={value <= minValue}
-          >
-            <MinusIcon className="h-4 w-4" />
-          </Button>
-          <Button 
-            variant="outline" 
-            size="icon" 
-            onClick={() => adjustValue(setValue, value, step)}
-          >
-            <PlusIcon className="h-4 w-4" />
-          </Button>
-        </div>
+    <div className="flex items-center justify-between space-x-2">
+      <span className="text-sm font-medium">{label}: {value.toFixed(2)}</span>
+      <div className="flex space-x-1">
+        <Button 
+          variant="outline" 
+          size="icon" 
+          onClick={() => adjustValue(setValue, value, -step)}
+          disabled={value <= minValue}
+        >
+          <MinusIcon className="h-4 w-4" />
+        </Button>
+        <Button 
+          variant="outline" 
+          size="icon" 
+          onClick={() => adjustValue(setValue, value, step)}
+        >
+          <PlusIcon className="h-4 w-4" />
+        </Button>
       </div>
     </div>
   )
@@ -143,7 +183,7 @@ export default function EnhancedBinomialOptionPricingModel() {
       <div className={`${sidebarOpen ? 'w-64' : 'w-0'} transition-all duration-300 ease-in-out overflow-hidden bg-secondary`}>
         <div className="p-4 space-y-4">
           <h2 className="text-lg font-semibold pt-6">Model Parameters</h2>
-          <Button onClick={calculateOptionPrices} className="">Run Model</Button>
+          <Button onClick={calculateOptionPrices} className="mt-4 bg-blue-500 hover:bg-blue-600">Run Model</Button>
           <ParameterControl label="Stock Price" value={stockPrice} setValue={setStockPrice} step={0.01} minValue={0.1} />
           <ParameterControl label="Strike Price" value={strikePrice} setValue={setStrikePrice} step={0.01} minValue={0.1} />
           <ParameterControl label="Risk-Free Rate" value={riskFreeRate} setValue={setRiskFreeRate} />
@@ -161,6 +201,7 @@ export default function EnhancedBinomialOptionPricingModel() {
           <div className="flex justify-between items-center mb-4">
             <h1 className="text-2xl font-bold">Binomial Option Pricing Model Visualizer</h1>
             <div className='flex justify-between p-3'>
+
               <div className="relative -mt-8">
                 <Dock direction="middle">
                   <DockIcon>
